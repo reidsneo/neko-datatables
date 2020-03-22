@@ -1,0 +1,22 @@
+{
+    "name": "neko/datatables",
+    "description": "neko framework datatables addon",
+    "license": "MIT",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Reids",
+            "email": "reids@neoblackant.org"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Neko\\Datatables\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=7.2",
+        "ext-json": "*",
+        "psr/http-message": "^1.0"
+    }
+}
