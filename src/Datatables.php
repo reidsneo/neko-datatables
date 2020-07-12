@@ -5,6 +5,7 @@ namespace Neko\Datatables;
 use Closure;
 use Neko\Datatables\DB\DatabaseInterface;
 use Neko\Datatables\Http\Request;
+use Neko\Datatables\Iterators\ColumnCollection;
 
 /**
  * Class Datatables
@@ -42,11 +43,13 @@ class Datatables
      * @var array
      */
     protected $distinctColumn = [];
+    protected $arrayColumn = [];
 
     /**
      * @var array
      */
     protected $distinctData = [];
+    protected $arrayData = [];
 
     /**
      * Datatables constructor.
@@ -84,7 +87,6 @@ class Datatables
     {
         $column = $this->columns->getByName($column);
         $column->closure = $closure;
-
         return $this;
     }
 
@@ -123,6 +125,17 @@ class Datatables
         return $this;
     }
 
+    public function setResponse($array): Datatables
+    {
+        $this->arrayData = $array;
+        $this->columns = new ColumnCollection();
+        $cols = array_keys(call_user_func_array('array_merge', $array));
+        foreach ($cols as $name) {
+            $this->columns->append(new Column($name));
+        }
+        return $this;
+    }
+
     /**
      * @return array
      */
@@ -158,7 +171,6 @@ class Datatables
     {
         $this->builder = new QueryBuilder($query, $this->options, $this->db);
         $this->columns = $this->builder->columns();
-
         return $this;
     }
 
@@ -175,13 +187,28 @@ class Datatables
         return $this;
     }
 
+    public function render(): Datatables
+    {
+        $columns = $this->options->columns();
+        if ($columns) {
+            $attributes = array_column($columns, null, 'data');
+
+            foreach ($attributes as $index => $attr) {
+                if ($this->columns->visible()->isExists($index)) {
+                    $this->columns->visible()->get($index)->attr = $attr;
+                }
+            }
+        }
+        $this->setResponseDataArray();
+        return $this;
+    }
+
     /**
      * @return array
      */
     protected function getData(): array
     {
         $data = $this->db->query($this->builder->full);
-
         return array_map([$this, 'prepareRowData'], $data);
     }
 
@@ -192,6 +219,35 @@ class Datatables
     protected function prepareRowData($row): array
     {
         $keys = $this->builder->isDataObject() ? $this->columns->names() : array_keys($this->columns->names());
+
+        $values = array_map(function (Column $column) use ($row) {
+            return $column->value($row);
+        }, $this->columns->visible()->getArrayCopy());
+
+        return array_combine($keys, $values);
+    }
+
+    public function checkAssoc(): bool
+    {
+        if (!$this->options->columns()) {
+            return false;
+        }
+
+        $data = array_column($this->options->columns(), 'data');
+        $rangeSet = array_map('strval', array_keys($data));
+
+        return array_intersect($data, $rangeSet) !== $data;
+    }
+
+    protected function getDataArr(): array
+    {
+        $data = $this->arrayData;
+        return array_map([$this, 'prepareArrRowData'], $data);
+    }
+
+    protected function prepareArrRowData($row): array
+    {
+        $keys = self::checkAssoc() ? $this->columns->names() : array_keys($this->columns->names());
 
         $values = array_map(function (Column $column) use ($row) {
             return $column->value($row);
@@ -226,6 +282,19 @@ class Datatables
             $this->response['distinctData'] = array_merge($this->response['distinctData'] ?? [],
                 $this->getDistinctData(), $this->distinctData);
         }
+    }
+
+    public function setResponseDataArray(): void
+    {
+        $this->response['draw'] = $this->options->draw();
+        $this->response['recordsTotal'] = count($this->arrayData);
+        $this->response['recordsFiltered'] = count($this->getDataArr());
+        $this->response['data'] = $this->getDataArr();
+    }
+
+    public function increment($data)
+    {
+        return substr($data, 0, 3).'...';
     }
 
     /**

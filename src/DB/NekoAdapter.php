@@ -2,27 +2,22 @@
 
 namespace Neko\Datatables\DB;
 
+use Neko\Database\DB;
 use Neko\Datatables\Query;
 
+
 /**
- * Class CodeigniterAdapter
+ * Class LaravelAdapter
  * @package Neko\Datatables\DB
  */
-class CodeigniterAdapter extends DBAdapter
+class NekoAdapter extends DBAdapter
 {
     /**
-     * @var
-     */
-    protected $CI;
-
-    /**
-     * CodeigniterAdapter constructor.
+     * LaravelAdapter constructor.
      * @param null $config
      */
     public function __construct($config = null)
     {
-        $this->CI =& get_instance();
-        $this->CI->load->database();
     }
 
     /**
@@ -35,13 +30,18 @@ class CodeigniterAdapter extends DBAdapter
 
     /**
      * @param Query $query
-     * @return mixed
+     * @return array
      */
     public function query(Query $query)
     {
-        $data = $this->CI->db->query($query, $query->escapes);
+        $data = DB::query($query, $query->escapes);
+        $row = [];
 
-        return $data->result_array();
+        foreach ($data as $item) {
+            $row[] = (array)$item;
+        }
+
+        return $row;
     }
 
     /**
@@ -50,9 +50,8 @@ class CodeigniterAdapter extends DBAdapter
      */
     public function count(Query $query)
     {
-        $data = $this->CI->db->query("Select count(*) as rowcount from ($query)t", $query->escapes)->result_array();
-
-        return $data[0]['rowcount'];
+        $data = DB::query($query, $query->escapes)->rowCount();
+        return $data;
     }
 
     /**
@@ -62,9 +61,8 @@ class CodeigniterAdapter extends DBAdapter
      */
     public function escape($string, Query $query)
     {
-        $query->escapes[] = $string;
-
-        return '?';
+        $query->escapes[':binding_'.(count($query->escapes) + 1)] = $string;
+        return ':binding_'.count($query->escapes);
     }
 }
 
