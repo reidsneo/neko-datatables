@@ -6,6 +6,7 @@ use Closure;
 use Neko\Datatables\DB\DatabaseInterface;
 use Neko\Datatables\Http\Request;
 use Neko\Datatables\Iterators\ColumnCollection;
+use Neko\Datatables\DB\Adapter;
 
 /**
  * Class Datatables
@@ -57,8 +58,9 @@ class Datatables
      * @param \Neko\Datatables\DB\DatabaseInterface $db
      * @param Request $request
      */
-    public function __construct(DatabaseInterface $db, Request $request = null)
+    public function __construct(Request $request = null)
     {
+        $db = new Adapter();
         $this->db = $db->connect();
         $this->options = new Option($request ?: Request::createFromGlobals());
     }
@@ -268,16 +270,26 @@ class Datatables
         return $output ?? [];
     }
 
+    function concatArrays($arrays){
+        $buf = [];
+        foreach($arrays as $arr){
+            foreach($arr as $v){
+                $buf[$v] = true;
+            }
+        }
+        return array_keys($buf);
+    }
     /**
      *
      */
     public function setResponseData(): void
     {
+        $data = $this->getData();
         $this->response['draw'] = $this->options->draw();
         $this->response['recordsTotal'] = $this->db->count($this->builder->query);
-        $this->response['recordsFiltered'] = $this->db->count($this->builder->filtered);
-        $this->response['data'] = $this->getData();
-
+        $this->response['recordsFiltered'] =  $this->db->count($this->builder->filtered);
+        $this->response['data'] = $data;
+        
         if (\count($this->distinctColumn) > 0 || \count($this->distinctData) > 0) {
             $this->response['distinctData'] = array_merge($this->response['distinctData'] ?? [],
                 $this->getDistinctData(), $this->distinctData);

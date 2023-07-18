@@ -10,7 +10,7 @@ use Neko\Datatables\Query;
  * Class LaravelAdapter
  * @package Neko\Datatables\DB
  */
-class NekoAdapter extends DBAdapter
+class Adapter extends DBAdapter
 {
     /**
      * LaravelAdapter constructor.
@@ -50,8 +50,8 @@ class NekoAdapter extends DBAdapter
      */
     public function count(Query $query)
     {
-        $data = DB::query($query, $query->escapes)->rowCount();
-        return $data;
+        $data = DB::query($query, $query->escapes);
+        return $data->rowCount();
     }
 
     /**
